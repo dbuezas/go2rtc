@@ -1,12 +1,16 @@
 package streams
 
 import (
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/AlexxIT/go2rtc/pkg/dvrip"
+
 	"github.com/AlexxIT/go2rtc/internal/api"
 	"github.com/AlexxIT/go2rtc/internal/app"
 	"github.com/AlexxIT/go2rtc/internal/app/store"
 	"github.com/rs/zerolog"
-	"net/http"
-	"net/url"
 )
 
 func Init() {
@@ -55,6 +59,21 @@ func NewTemplate(name string, source any) *Stream {
 
 func GetOrNew(src string) *Stream {
 	if stream, ok := streams[src]; ok {
+		go func() {
+			for _, producer := range stream.producers {
+				isDvrip := strings.HasPrefix(producer.url, "dvrip://")
+				if isDvrip {
+					conn := dvrip.NewClient(producer.url)
+					if err := conn.Dial(); err != nil {
+						continue
+					}
+					if err := conn.Play(); err != nil {
+						continue
+					}
+					conn.Close()
+				}
+			}
+		}()
 		return stream
 	}
 
